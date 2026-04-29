@@ -1,24 +1,49 @@
--- 1. On charge la library (le moteur)
+-- 1. Chargement de la Library
 local AbyssalLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/bocaj111004/Abysall/refs/heads/main/Library.luau"))()
 
--- 2. On crée la fenêtre (la carrosserie)
+-- 2. Création de la Fenêtre
 local Window = AbyssalLib:CreateWindow({
-    Name = "Mylo Hub - Test",
-    LoadingTitle = "Chargement...",
-    LoadingSubtitle = "Par Mylo",
+    Name = "Mylo Hub | Test System",
+    LoadingTitle = "Vérification des fonctions...",
+    LoadingSubtitle = "Par Mylooooo1",
     Theme = "Dark"
 })
 
--- 3. On crée un onglet
+-- 3. Onglet Principal
 local Tab = Window:CreateTab("Principal")
 
--- 4. On ajoute un bouton pour vérifier que ça marche
 Tab:CreateButton({
-    Name = "Clique-moi !",
+    Name = "✨ Tester Mode Magnifique (Safe)",
     Callback = function()
-        print("Le bouton fonctionne !")
-        AbyssalLib:Notify("Succès", "L'interface est bien chargée !", 3)
+        local L = game:GetService("Lighting")
+        -- Nettoyage
+        for _, v in pairs(L:GetChildren()) do
+            if v:IsA("BloomEffect") or v:IsA("ColorCorrectionEffect") then v:Destroy() end
+        end
+        -- Paramètres qui ne font pas d'écran blanc
+        local cc = Instance.new("ColorCorrectionEffect", L)
+        cc.Contrast = 0.3
+        cc.Saturation = 0.4
+        cc.Brightness = 0
+        
+        local bloom = Instance.new("BloomEffect", L)
+        bloom.Intensity = 0.15
+        bloom.Threshold = 0.8
+        
+        AbyssalLib:Notify("Visuels", "RTX activé sans flashbang !", 3)
     end,
 })
 
-AbyssalLib:Notify("Prêt", "Interface Abyssal activée !", 3)
+Tab:CreateToggle({
+    Name = "Vitesse Rapide",
+    CurrentValue = false,
+    Callback = function(Value)
+        local hum = game.Players.LocalPlayer.Character:FindFirstChild("Humanoid")
+        if hum then
+            hum.WalkSpeed = Value and 100 or 16
+        end
+    end,
+})
+
+-- 4. Notification de départ
+AbyssalLib:Notify("Système", "Le test est prêt. Si tu vois ce message, tout marche !", 5)
