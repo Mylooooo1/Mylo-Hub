@@ -1,1 +1,791 @@
-https://raw.githubusercontent.com/bocaj111004/Abysall/refs/heads/main/Library.luau
+----------------------------------------------------------------
+-- MOUVEMENT
+----------------------------------------------------------------
+local MoveTab = Window:CreateTab("Mouvement", 4483362458)
+
+local SpeedToggle = MoveTab:CreateToggle({
+   Name = "Speed Hack",
+   CurrentValue = false,
+   Callback = function(Value)
+       speedEnabled = Value
+       if not Value and p.Character and p.Character:FindFirstChild("Humanoid") then
+           p.Character.Humanoid.WalkSpeed = 16 
+       end
+   end,
+})
+
+MoveTab:CreateSlider({
+    Name = "Vitesse Marche", 
+    Range = {16, 300}, 
+    Increment = 1, 
+    CurrentValue = 16, 
+    Callback = function(v) walkSpeed = v end
+})
+
+RunService.Stepped:Connect(function()
+    if speedEnabled and p.Character and p.Character:FindFirstChild("Humanoid") then
+        p.Character.Humanoid.WalkSpeed = walkSpeed
+    end
+end)
+
+local FlyToggle = MoveTab:CreateToggle({
+   Name = "Fly (Voler)",
+   CurrentValue = false,
+   Callback = function(Value)
+       flying = Value
+       if flying then
+           local root = p.Character:WaitForChild("HumanoidRootPart")
+           local bv = Instance.new("BodyVelocity", root)
+           bv.Name = "FlyVel"
+           bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+           local bg = Instance.new("BodyGyro", root)
+           bg.Name = "FlyGyro"
+           bg.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+           task.spawn(function()
+               while flying do
+                   task.wait()
+                   local dir = Vector3.new(0,0,0)
+                   if UIS:IsKeyDown(Enum.KeyCode.W) then dir = dir + workspace.CurrentCamera.CFrame.LookVector end
+                   if UIS:IsKeyDown(Enum.KeyCode.S) then dir = dir - workspace.CurrentCamera.CFrame.LookVector end
+                   if UIS:IsKeyDown(Enum.KeyCode.A) then dir = dir - workspace.CurrentCamera.CFrame.RightVector end
+                   if UIS:IsKeyDown(Enum.KeyCode.D) then dir = dir + workspace.CurrentCamera.CFrame.RightVector end
+                   bv.Velocity = dir * flySpeed
+                   bg.CFrame = workspace.CurrentCamera.CFrame
+                   p.Character.Humanoid.PlatformStand = true
+               end
+               if bv then bv:Destroy() end
+               if bg then bg:Destroy() end
+               p.Character.Humanoid.PlatformStand = false
+           end)
+       end
+   end,
+})
+
+MoveTab:CreateSlider({Name = "Vitesse Fly", Range = {10, 500}, Increment = 1, CurrentValue = 50, Callback = function(v) flySpeed = v end})
+MoveTab:CreateToggle({Name = "No Clip", CurrentValue = false, Callback = function(v) noclip = v end})
+MoveTab:CreateToggle({Name = "Infinite Jump", CurrentValue = false, Callback = function(v) infJump = v end})
+
+----------------------------------------------------------------
+-- TÉLÉPORTATION
+----------------------------------------------------------------
+local TPTab = Window:CreateTab("Téléportation", 4483362458)
+
+local function getPlayers()
+    local t = {}
+    for _, v in pairs(game.Players:GetPlayers()) do if v ~= p then table.insert(t, v.Name) end end
+    return t
+end
+
+local Dropdown = TPTab:CreateDropdown({
+   Name = "1. Cible",
+   Options = getPlayers(),
+   CurrentOption = {""},
+   Callback = function(Option) selectedPlayer = Option[1] end,
+})
+
+TPTab:CreateButton({
+   Name = "2. SE TÉLÉPORTER (Spam)",
+   Callback = function()
+       if selectedPlayer ~= "" then
+           local target = game.Players:FindFirstChild(selectedPlayer)
+           if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+               p.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame.new(0,3,0)
+           end
+       end
+   end,
+})
+
+TPTab:CreateInput({
+   Name = "Rechercher un pseudo",
+   PlaceholderText = "Écris le nom ici...",
+   Callback = function(Text)
+       local filtered = {}
+       for _, n in pairs(getPlayers()) do
+           if string.find(n:lower(), Text:lower()) then table.insert(filtered, n) end
+       end
+       Dropdown:Refresh(filtered, true)
+   end,
+})
+
+----------------------------------------------------------------
+-- JOUEUR & OPTIONS VISUELLES
+----------------------------------------------------------------
+local PlayerTab = Window:CreateTab("Joueur", 4483362458)
+
+-- Variables pour le Spin Bot
+local spinActive = false
+local spinSpeed = 50
+
+PlayerTab:CreateToggle({Name = "God Mode", CurrentValue = false, Callback = function(v) godModeActive = v end})
+
+-- FULL BRIGHT
+PlayerTab:CreateToggle({
+    Name = "Full Bright (Lumière)",
+    CurrentValue = false,
+    Callback = function(Value)
+        fullBrightEnabled = Value
+        if not Value then
+            Lighting.Brightness = 1
+            Lighting.ClockTime = 12
+            Lighting.FogEnd = 100000
+            Lighting.GlobalShadows = true
+            Lighting.Ambient = Color3.fromRGB(0, 0, 0)
+        end
+    end
+})
+
+-- SECTION SPIN BOT
+PlayerTab:CreateSection("Mouvements")
+
+PlayerTab:CreateToggle({
+    Name = "🌪️ Spin Bot",
+    CurrentValue = false,
+    Callback = function(Value)
+        spinActive = Value
+        task.spawn(function()
+            while spinActive do
+                if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    -- Rotation du personnage sur l'axe Y
+                    game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.Angles(0, math.rad(spinSpeed), 0)
+                end
+                task.wait()
+            end
+        end)
+    end
+})
+
+PlayerTab:CreateSlider({
+    Name = "Vitesse du Spin",
+    Range = {10, 300},
+    Increment = 10,
+    CurrentValue = 50,
+    Callback = function(Value)
+        spinSpeed = Value
+    end
+})
+
+----------------------------------------------------------------
+-- INVISIBILITÉ (RETOUR À LA VERSION CLASSIQUE)
+----------------------------------------------------------------
+
+local Player = game.Players.LocalPlayer
+local isInvisibleState = false -- État pour le statut
+
+-- 1. CRÉATION DE L'INTERFACE
+local function CreateStatusGui()
+    local old = Player.PlayerGui:FindFirstChild("StatusIndicator")
+    if old then old:Destroy() end
+
+    local ScreenGui = Instance.new("ScreenGui", Player.PlayerGui)
+    ScreenGui.Name = "StatusIndicator"
+    ScreenGui.ResetOnSpawn = false 
+    ScreenGui.Enabled = false -- Caché au début
+
+    local Label = Instance.new("TextLabel", ScreenGui)
+    Label.Name = "StatusLabel"
+    Label.Size = UDim2.new(0, 200, 0, 50)
+    Label.Position = UDim2.new(0, 20, 0, 20)
+    Label.BackgroundColor3 = Color3.new(0, 0, 0)
+    Label.BackgroundTransparency = 0.5
+    Label.TextColor3 = Color3.new(1, 1, 1)
+    Label.Text = "PRÊT"
+    Label.TextSize = 18
+    Label.Font = Enum.Font.SourceSansBold
+    
+    return ScreenGui, Label
+end
+
+local MyGui, MyLabel = CreateStatusGui()
+
+-- 2. LA FONCTION LOGIQUE
+local function ToggleAction()
+    isInvisibleState = not isInvisibleState
+    
+    -- On affiche le GUI dès le premier clic
+    MyGui.Enabled = true
+
+    if isInvisibleState then 
+        -- 1er CLIC : ON PASSE EN VERT + ON LANCE LE SCRIPT (Le bouton rouge apparaîtra)
+        MyLabel.Text = "STATUT : 🟢 VISIBLE"
+        MyLabel.TextColor3 = Color3.new(0, 1, 0)
+        
+        task.spawn(function()
+            pcall(function()
+                loadstring(game:HttpGet('https://pastebin.com/raw/3Rnd9rHf'))()
+            end)
+        end)
+    else
+        -- 2ème CLIC : ON PASSE EN ROUGE
+        MyLabel.Text = "STATUT : 🔴 INVISIBLE"
+        MyLabel.TextColor3 = Color3.new(1, 0, 0)
+    end
+end
+
+-- 3. BOUTON RAYFIELD
+PlayerTab:CreateButton({
+    Name = "Invisible (G)",
+    Callback = function()
+        ToggleAction()
+    end,
+})
+
+-- 4. TOUCHE G
+game:GetService("UserInputService").InputBegan:Connect(function(i, chat)
+    if not chat and i.KeyCode == Enum.KeyCode.G then
+        ToggleAction()
+    end
+end)
+----------------------------------------------------------------
+-- TOUCHES & CONFIG
+----------------------------------------------------------------
+
+local ConfigTab = Window:CreateTab("Touches", 4483362458)
+
+ConfigTab:CreateKeybind({
+    Name = "Fly Bind", 
+    CurrentKeybind = "F", 
+    Callback = function(k) 
+        if k ~= Enum.KeyCode.Escape and FlyToggle then 
+            FlyToggle:Set(not flying) 
+        end 
+    end
+})
+
+ConfigTab:CreateKeybind({
+    Name = "Speed Bind", 
+    CurrentKeybind = "V", 
+    Callback = function(k) 
+        if k ~= Enum.KeyCode.Escape and SpeedToggle then 
+            SpeedToggle:Set(not speedEnabled) 
+        end 
+    end
+})
+
+-- Dans ton onglet Touches
+ConfigTab:CreateKeybind({
+    Name = "⚖️ Stabilisateur Bind",
+    CurrentKeybind = "Q",
+    Callback = function(k)
+        if k ~= Enum.KeyCode.Escape and _G.StabilizerToggle then
+            _G.StabilizerToggle:Set(not _G.airWalkEnabled)
+        end
+    end
+})
+
+----------------------------------------------------------------
+-- ESP 
+----------------------------------------------------------------
+local ESPTab = Window:CreateTab("ESP", 4483362458)
+local ESPCol = Color3.fromRGB(255, 0, 255)
+_G.Chams, _G.Names = false, false
+
+ESPTab:CreateColorPicker({Name = "Couleur ESP", Color = ESPCol, Callback = function(v) ESPCol = v end})
+ESPTab:CreateToggle({Name = "Chams", CurrentValue = false, Callback = function(v) _G.Chams = v end})
+ESPTab:CreateToggle({Name = "Pseudos", CurrentValue = false, Callback = function(v) _G.Names = v end})
+
+----------------------------------------------------------------
+-- BOUCLES SYSTEME (LOGIQUE PERMANENTE)
+----------------------------------------------------------------
+
+-- Boucle pour le Full Bright et God Mode
+RunService.RenderStepped:Connect(function()
+    if fullBrightEnabled then
+        Lighting.Brightness = 2
+        Lighting.ClockTime = 14
+        Lighting.FogEnd = 100000
+        Lighting.GlobalShadows = false
+        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+    end
+end)
+
+-- Boucle Noclip
+RunService.Stepped:Connect(function()
+    if noclip and p.Character then
+        for _, v in pairs(p.Character:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end
+    end
+end)
+
+-- Infinite Jump
+UIS.JumpRequest:Connect(function()
+    if infJump and p.Character and p.Character:FindFirstChild("Humanoid") then p.Character.Humanoid:ChangeState("Jumping") end
+end)
+
+-- Boucle ESP & GodMode
+task.spawn(function()
+    while true do task.wait(0.1)
+        if godModeActive and p.Character and p.Character:FindFirstChild("Humanoid") then 
+            p.Character.Humanoid.Health = p.Character.Humanoid.MaxHealth 
+        end
+        
+        for _, v in pairs(game.Players:GetPlayers()) do
+            if v ~= p and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+                -- Chams logic
+                if _G.Chams then
+                    local h = v.Character:FindFirstChild("GeminiHighlight") or Instance.new("Highlight", v.Character)
+                    h.Name = "GeminiHighlight"
+                    h.FillColor = ESPCol
+                elseif v.Character:FindFirstChild("GeminiHighlight") then v.Character.GeminiHighlight:Destroy() end
+                
+                -- Names logic
+                if _G.Names then
+                    local tag = v.Character:FindFirstChild("GeminiTag") or Instance.new("BillboardGui", v.Character)
+                    tag.Name = "GeminiTag"
+                    tag.AlwaysOnTop = true
+                    tag.Size = UDim2.new(0, 200, 0, 50)
+                    tag.ExtentsOffset = Vector3.new(0, 3, 0)
+                    local l = tag:FindFirstChild("TextLabel") or Instance.new("TextLabel", tag)
+                    l.Size = UDim2.new(1,0,1,0)
+                    l.BackgroundTransparency = 1
+                    l.Text = v.Name
+                    l.TextColor3 = ESPCol
+                    l.Font = Enum.Font.SourceSansBold
+                    l.TextSize = 14
+                    l.TextStrokeTransparency = 0
+                elseif v.Character:FindFirstChild("GeminiTag") then v.Character.GeminiTag:Destroy() end
+            end
+        end
+    end
+end)
+
+----------------------------------------------------------------
+-- AUTO CLIC - FOV - ANTI AFK
+----------------------------------------------------------------
+
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local antiAFKEnabled = false
+
+local UtilTab = Window:CreateTab("Utilitaires", 4483362458)
+
+-- FOV CHANGER
+UtilTab:CreateSlider({
+   Name = "Champ de Vision (FOV)",
+   Range = {30, 120},
+   Increment = 1,
+   CurrentValue = 70,
+   Callback = function(v)
+       workspace.CurrentCamera.FieldOfView = v
+   end,
+})
+
+-- ANTI-AFK
+UtilTab:CreateToggle({
+   Name = "Anti-AFK (Sécurité)",
+   CurrentValue = false,
+   Callback = function(v)
+       antiAFKEnabled = v
+       if v then
+           Rayfield:Notify({Title = "Anti-AFK", Content = "Activé !", Duration = 2})
+       end
+   end,
+})
+
+-- Logique Anti-AFK (Détection d'inactivité)
+game.Players.LocalPlayer.Idled:Connect(function()
+    if antiAFKEnabled then
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.RightShift, false, game)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.RightShift, false, game)
+    end
+end)
+
+----------------------------------------------------------------
+-- FLING MENU
+----------------------------------------------------------------
+
+-- Bouton pour charger le script externe
+UtilTab:CreateButton({
+   Name = "Ouvrir Fling GUI (Script Externe)",
+   Callback = function()
+       -- Exécute le script GitHub
+       loadstring(game:HttpGet("https://raw.githubusercontent.com/nvkob1/rbxscripts/refs/heads/main/FlingGUI/FlingGUI.lua"))()
+       
+       -- Notification pour confirmer le lancement
+       Rayfield:Notify({
+           Title = "Script Externe",
+           Content = "Fling GUI a été chargé avec succès.",
+           Duration = 3
+       })
+   end,
+})
+
+----------------------------------------------------------------
+-- MAGNETIZER INVERSÉ (AVEC HAUTEUR RÉGLABLE)
+----------------------------------------------------------------
+local magnetToPlayerEnabled = false
+local selectedMagnetTarget = ""
+local magnetFollowDistance = 5 
+local magnetHeightOffset = 0 -- Nouvelle variable pour la hauteur
+
+local MagnetTab = Window:CreateTab("Magnet", 4483362458)
+
+local function getPlayers()
+    local t = {}
+    for _, v in pairs(game.Players:GetPlayers()) do 
+        if v ~= p then table.insert(t, v.Name) end 
+    end
+    return t
+end
+
+-- 1. INTERFACE
+local MagnetDropdown = MagnetTab:CreateDropdown({
+   Name = "1. Sélectionner Cible",
+   Options = getPlayers(),
+   CurrentOption = {""},
+   Callback = function(Option) selectedMagnetTarget = Option[1] end,
+})
+
+MagnetTab:CreateInput({
+   Name = "Rechercher un pseudo",
+   PlaceholderText = "Tape ici...",
+   Callback = function(Text)
+       local filtered = {}
+       for _, n in pairs(getPlayers()) do
+           if string.find(n:lower(), Text:lower()) then table.insert(filtered, n) end
+       end
+       MagnetDropdown:Refresh(filtered, true)
+   end,
+})
+
+MagnetTab:CreateToggle({
+    Name = "2. ACTIVER L'AIMANT (Suivre)",
+    CurrentValue = false,
+    Callback = function(Value) magnetToPlayerEnabled = Value end,
+})
+
+-- SLIDER POUR LA DISTANCE
+MagnetTab:CreateSlider({
+    Name = "Distance d'arrêt",
+    Range = {0, 50},
+    Increment = 1,
+    CurrentValue = 5,
+    Callback = function(v) magnetFollowDistance = v end
+})
+
+-- NOUVEAU SLIDER POUR LA HAUTEUR
+MagnetTab:CreateSlider({
+    Name = "Hauteur (Offset Y)",
+    Range = {-10, 50},
+    Increment = 1,
+    CurrentValue = 0,
+    Callback = function(v) magnetHeightOffset = v end
+})
+
+-- 2. LOGIQUE D'ATTRACTION
+task.spawn(function()
+    game:GetService("RunService").RenderStepped:Connect(function()
+        if magnetToPlayerEnabled and selectedMagnetTarget ~= "" then
+            local targetPlayer = game.Players:FindFirstChild(selectedMagnetTarget)
+            
+            if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local targetRP = targetPlayer.Character.HumanoidRootPart
+                local myRP = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+                
+                if myRP then
+                    -- On calcule la position cible : Derrière lui + l'offset de hauteur
+                    local goalCFrame = targetRP.CFrame * CFrame.new(0, magnetHeightOffset, magnetFollowDistance)
+                    local dist = (myRP.Position - goalCFrame.Position).Magnitude
+                    
+                    if dist > 0.5 then -- Petite zone morte pour éviter les tremblements
+                        -- Téléportation fluide vers la position calculée
+                        myRP.CFrame = myRP.CFrame:Lerp(goalCFrame, 0.15)
+                        
+                        -- Annule la vélocité pour un mouvement propre
+                        myRP.Velocity = Vector3.new(0, 0, 0)
+                    end
+                end
+            end
+        end
+    end)
+end)
+
+
+----------------------------------------------------------------
+-- Espionnage
+----------------------------------------------------------------
+
+local viewEnabled = false
+local selectedViewTarget = ""
+local ViewTab = Window:CreateTab("Espionnage", 4483362458)
+
+-- Fonction pour rafraîchir la liste des joueurs
+local function getPlayers()
+    local t = {}
+    for _, v in pairs(game.Players:GetPlayers()) do 
+        if v ~= p then table.insert(t, v.Name) end 
+    end
+    return t
+end
+
+ViewTab:CreateSection("Sélection de la cible")
+
+-- 1. Le Dropdown avec Recherche
+local ViewDropdown = ViewTab:CreateDropdown({
+   Name = "Choisir un joueur",
+   Options = getPlayers(),
+   CurrentOption = {""},
+   Callback = function(Option) 
+       selectedViewTarget = Option[1] 
+   end,
+})
+
+ViewTab:CreateInput({
+   Name = "Rechercher un pseudo",
+   PlaceholderText = "Taper le nom...",
+   Callback = function(Text)
+       local filtered = {}
+       for _, n in pairs(getPlayers()) do
+           if string.find(n:lower(), Text:lower()) then table.insert(filtered, n) end
+       end
+       ViewDropdown:Refresh(filtered, true)
+   end,
+})
+
+ViewTab:CreateSection("Contrôle de la Caméra")
+
+-- 2. Le Toggle pour Activer/Désactiver
+ViewTab:CreateToggle({
+    Name = "🎥 Activer l'espionnage",
+    CurrentValue = false,
+    Callback = function(Value)
+        viewEnabled = Value
+        
+        if not Value then
+            -- Reset immédiat quand on désactive
+            workspace.CurrentCamera.CameraSubject = p.Character:FindFirstChild("Humanoid")
+            Rayfield:Notify({Title = "Espionnage", Content = "Retour à votre personnage", Duration = 2})
+        end
+    end
+})
+
+-- 3. Logique de suivi (Boucle de fond)
+task.spawn(function()
+    while true do
+        if viewEnabled and selectedViewTarget ~= "" then
+            local targetPlayer = game.Players:FindFirstChild(selectedViewTarget)
+            if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("Humanoid") then
+                -- Si la caméra ne regarde pas déjà la cible, on la change
+                if workspace.CurrentCamera.CameraSubject ~= targetPlayer.Character.Humanoid then
+                    workspace.CurrentCamera.CameraSubject = targetPlayer.Character.Humanoid
+                end
+            end
+        else
+            -- Si on est désactivé mais que la caméra regarde encore ailleurs (sécurité)
+            if not viewEnabled and p.Character and p.Character:FindFirstChild("Humanoid") then
+                if workspace.CurrentCamera.CameraSubject ~= p.Character.Humanoid then
+                    workspace.CurrentCamera.CameraSubject = p.Character.Humanoid
+                end
+            end
+        end
+        task.wait(0.1) -- Petite pause pour ne pas surcharger le processeur
+    end
+end)
+
+----------------------------------------------------------------
+-- SYSTÈME DE CHAT LOGGER PRO (ANTI-DOUBLON & SCROLLABLE)
+----------------------------------------------------------------
+local ChatTab = Window:CreateTab("Chat Logger", 4483362458)
+local TextChatService = game:GetService("TextChatService")
+local playerColors = {}
+local lastMessages = {} -- Pour filtrer les doublons
+
+-- Fonction pour obtenir une couleur vive
+local function getPlayerColor(playerName)
+    if not playerColors[playerName] then
+        local r = math.random(100, 255)
+        local g = math.random(100, 255)
+        local b = math.random(100, 255)
+        playerColors[playerName] = string.format("rgb(%d,%d,%d)", r, g, b)
+    end
+    return playerColors[playerName]
+end
+
+ChatTab:CreateSection("Historique (Scroll vers le bas)")
+
+-- Fonction pour ajouter un message proprement
+local function addMessage(senderName, msg)
+    local time = os.date("%H:%M")
+    
+    -- Anti-doublon : On ignore si c'est exactement le même message envoyé au même moment
+    local msgKey = senderName .. msg
+    if lastMessages[msgKey] and tick() - lastMessages[msgKey] < 0.2 then return end
+    lastMessages[msgKey] = tick()
+
+    local color = getPlayerColor(senderName)
+    local formattedText = string.format("[%s] <font color='%s'><b>%s</b></font>: %s", time, color, senderName, msg)
+    
+    -- Création d'un Label par message (permet de remonter/descendre le chat)
+    ChatTab:CreateLabel(formattedText)
+end
+
+-- 1. ÉCOUTEUR TEXTCHATSERVICE (Nouveau Chat)
+if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+    TextChatService.OnIncomingMessage = function(message)
+        if message.TextSource then
+            addMessage(message.TextSource.Name, message.Text)
+        end
+    end
+end
+
+-- 2. ÉCOUTEUR LEGACY (Ancien Chat)
+local function hookPlayer(player)
+    player.Chatted:Connect(function(msg)
+        -- On n'ajoute que si le nouveau service n'est pas actif pour éviter les doublons
+        if TextChatService.ChatVersion ~= Enum.ChatVersion.TextChatService then
+            addMessage(player.Name, msg)
+        end
+    end)
+end
+
+for _, player in pairs(game.Players:GetPlayers()) do hookPlayer(player) end
+game.Players.PlayerAdded:Connect(hookPlayer)
+
+-- BOUTON DE NETTOYAGE
+ChatTab:CreateSection("Contrôles")
+ChatTab:CreateButton({
+    Name = "⚠️ Note : Relancer le script pour vider la liste",
+    Callback = function() 
+        Rayfield:Notify({Title = "Info", Content = "Le scroll automatique empêche le vidage partiel.", Duration = 3})
+    end,
+})
+
+----------------------------------------------------------------
+-- Physique Fly
+----------------------------------------------------------------
+
+-- 1. SERVICES
+local RunService = game:GetService("RunService")
+local lp = game:GetService("Players").LocalPlayer
+
+_G.airWalkEnabled = false 
+local airPart = nil
+local lastY = 0
+
+-- 2. NETTOYAGE
+local function cleanup()
+    _G.airWalkEnabled = false
+    if airPart then 
+        airPart:Destroy() 
+        airPart = nil 
+    end
+end
+
+-- 3. CRÉATION DU TOGGLE
+local MovementTab = Window:CreateTab("Fun", 4483362458)
+
+_G.StabilizerToggle = MovementTab:CreateToggle({
+   Name = "⚖️ Stabilisateur d'Air",
+   CurrentValue = false,
+   Flag = "SteadyAirWalk",
+   Callback = function(Value)
+       if Value then
+           cleanup()
+           _G.airWalkEnabled = true
+           
+           local char = lp.Character
+           local hrp = char and char:FindFirstChild("HumanoidRootPart")
+           if hrp then lastY = hrp.Position.Y - 3.22 end
+
+           airPart = Instance.new("Part")
+           airPart.Name = "AirStab_Final"
+           airPart.Size = Vector3.new(6, 0.5, 6) -- Taille compacte
+           airPart.Transparency = 0.8
+           airPart.Anchored = true
+           airPart.CanCollide = true
+           airPart.Color = Color3.fromRGB(255, 255, 255)
+           airPart.Parent = workspace
+           
+           task.spawn(function()
+               while _G.airWalkEnabled and airPart do
+                   local root = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+                   
+                   if root then
+                       -- CALCUL DE LA DISTANCE :
+                       -- Si l'écart entre tes pieds et la plaque est grand, ça veut dire que tu Fly.
+                       local targetY = root.Position.Y - 3.22
+                       local diffY = math.abs(targetY - lastY)
+
+                       if diffY > 0.5 then
+                           -- Tu es en Fly : la plaque se téléporte sous toi
+                           lastY = targetY
+                       end
+
+                       -- Dans tous les cas, elle te suit en X et Z
+                       airPart.CFrame = CFrame.new(root.Position.X, lastY, root.Position.Z)
+                   end
+                   RunService.Stepped:Wait()
+               end
+               cleanup()
+           end)
+       else
+           cleanup()
+       end
+   end,
+})
+
+
+---------------------------------------------------------------
+-- OVERLAY DE PERFORMANCES (Haut à Droite)
+----------------------------------------------------------------
+local RunService = game:GetService("RunService")
+local StatsService = game:GetService("Stats")
+local CoreGui = game:GetService("CoreGui")
+
+-- Création de l'interface visuelle
+local OverlayGui = Instance.new("ScreenGui")
+local StatLabel = Instance.new("TextLabel")
+
+-- Sécurité pour éviter que le GUI ne soit supprimé par le jeu
+OverlayGui.Name = "PerfOverlay_" .. math.random(100, 999)
+OverlayGui.Parent = CoreGui -- Utilise CoreGui pour passer au-dessus de tout
+OverlayGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+StatLabel.Parent = OverlayGui
+StatLabel.BackgroundTransparency = 1 -- Transparent
+StatLabel.Position = UDim2.new(1, -10, 0, 10) -- En haut à droite (avec 10px de marge)
+StatLabel.AnchorPoint = Vector2.new(1, 0) -- Ancre à droite
+StatLabel.Size = UDim2.new(0, 200, 0, 50)
+StatLabel.Font = Enum.Font.Code -- Style "Hacker/Console"
+StatLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+StatLabel.TextSize = 16
+StatLabel.TextXAlignment = Enum.TextXAlignment.Right
+StatLabel.RichText = true -- Pour gérer les couleurs par mot
+StatLabel.TextStrokeTransparency = 0.5 -- Petit contour noir pour lire partout
+
+-- Variables de calcul
+local fpsCount = 0
+local lastUpdate = tick()
+
+-- Mise à jour en temps réel
+RunService.RenderStepped:Connect(function()
+    fpsCount = fpsCount + 1
+    local now = tick()
+    
+    if now - lastUpdate >= 1 then
+        local fps = math.floor(fpsCount / (now - lastUpdate))
+        local ping = math.floor(StatsService.Network.ServerStatsItem["Data Ping"]:GetValue())
+        
+        -- Choix des couleurs
+        local fColor = fps > 50 and "#00FF00" or (fps > 30 and "#FFA500" or "#FF0000")
+        local pColor = ping < 100 and "#00FF00" or (ping < 200 and "#FFA500" or "#FF0000")
+
+        StatLabel.Text = string.format(
+            "FPS: <font color='%s'>%d</font>\nPING: <font color='%s'>%d ms</font>",
+            fColor, fps, pColor, ping
+        )
+        
+        fpsCount = 0
+        lastUpdate = now
+    end
+end)
+
+----------------------------------------------------------------
+-- AJOUT DANS TON HUB (Pour pouvoir le masquer)
+----------------------------------------------------------------
+-- Si tu as déjà un onglet "Stats" ou "Paramètres"
+StatsTab:CreateToggle({
+   Name = "🖥️ Afficher l'Overlay (Haut-Droit)",
+   CurrentValue = true,
+   Callback = function(Value)
+       StatLabel.Visible = Value
+   end,
+})
+
